@@ -23,6 +23,8 @@ from kinova_msgs.srv import HomeArm, Stop, Start
 import threading
 currentFingerPosition = [0.0, 0.0, 0.0]
 
+
+#function for kinova finger open and close
 def gripper_client(prefix,finger_positions):
     """Send a gripper goal to the action server."""
     action_address = '/' + prefix + 'driver/fingers_action/finger_positions'
@@ -46,6 +48,8 @@ def gripper_client(prefix,finger_positions):
         client.cancel_all_goals()
         rospy.logwarn('        the gripper action timed-out')
         return None
+
+# function for robot arm position control
 def cartesian_pose_client(prefix,position, orientation):
 	"""Send a cartesian goal to the action server."""
 	action_address = '/' + prefix + 'driver/pose_action/tool_pose'
@@ -70,7 +74,7 @@ def cartesian_pose_client(prefix,position, orientation):
 		print('        the cartesian action timed-out')
 		return None
 
-
+######             common             ######
 def QuaternionNorm(Q_raw):
 	qx_temp,qy_temp,qz_temp,qw_temp = Q_raw[0:4]
 	qnorm = math.sqrt(qx_temp*qx_temp + qy_temp*qy_temp + qz_temp*qz_temp + qw_temp*qw_temp)
@@ -114,7 +118,6 @@ def EulerXYZ2Quaternion(EulerXYZ_):
 	return Q_
 
 
-
 def verboseParser(verbose, pose_mq_):
 	""" Argument verbose """
 	position_ = pose_mq_[:3]
@@ -129,6 +132,8 @@ def verboseParser(verbose, pose_mq_):
 		print('tx {:0.3f}, ty {:0.3f}, tz {:0.3f}'.format(orientation_rad[0], orientation_rad[1], orientation_rad[2]))
 		print('Cartesian orientation in Euler-XYZ(degree) is: ')
 		print('tx {:3.1f}, ty {:3.1f}, tz {:3.1f}'.format(orientation_deg[0], orientation_deg[1], orientation_deg[2]))
+
+
 class RobotArm():
 	def __init__(self,kinova_robotType):
 		#Robot param set
@@ -146,6 +151,7 @@ class RobotArm():
 		self.unit = 'mdeg'
 		self.currentCartesian = [0.2, -0.27, 0.506, 1.64, 1.108, -0.04]
 		self.setpoint = [0.2, -0.27, 0.506, 1.64, 1.108, -0.04]
+
 	def start_GUI(self):
 		rospy.init_node(self.prefix + 'pose_action_client')
 		self.arm_home = rospy.ServiceProxy('/j2n6s300_driver/in/home_arm',HomeArm)
@@ -153,23 +159,30 @@ class RobotArm():
 		self.arm_start = rospy.ServiceProxy('/j2n6s300_driver/in/start',Start)
 		self.arm_s = rospy.Subscriber('arm/command',Int32,self.arm_get)
 		self.arm_p = rospy.Publisher('arm/finish',Int32,queue_size=1)
-		#self.getcurrentCartesianCommand(self.prefix)
+		#self.getcurrentCartesianCommand(self.prefix)  #should be uncommand
 		self.win = tk.Tk()
-		print('hello')
 		self.win.title('KINOVA')
 		self.win.wm_geometry("1500x1500")
+	
+		##################################################	
+		##				build gui structure				##
+		##################################################	
 		scale_frame = tk.Frame(self.win)
 		Button_frame = tk.Frame(self.win)
 		Finger_frame = tk.Frame(self.win)
 		Kill_Button_frame = tk.Frame(self.win)
+		
 		scale_frame.grid(row = 1 ,column = 1)
 		Button_frame.grid(row = 2 ,column = 1)
 		Finger_frame.grid(row = 1 ,column = 2)
 		Kill_Button_frame.grid(row = 1 ,column = 3)
-		################################################################################
-		#                               motor simulate                                 #
-		################################################################################
+		
+
+		##################################################	
+		##				build scale frame				##
+		##################################################	
 		self.m =[]
+			
 		for i in range(6):
 			if i <3:
 				self.m.append(tk.Scale(scale_frame,from_=-1,to=1,orient=tk.HORIZONTAL,length=400,showvalue=1,tickinterval=20,resolution=0.001,command=self.print_select_value))
@@ -177,13 +190,18 @@ class RobotArm():
 				self.m.append(tk.Scale(scale_frame,from_=-3.14,to=3.14,orient=tk.HORIZONTAL,length=400,showvalue=1,tickinterval=20,resolution=0.01,command=self.print_select_value))
 			self.m[i].set(self.currentCartesian[i])
 			self.m[i].grid(row=i,column=1)
+		
+		
+		##################################################	
+		##				build button					##
+		##################################################	
 		tk.Button(Button_frame,  text='GO!', command=lambda:[self.go()]).grid(row = 1 ,column = 1)
 		tk.Button(Button_frame,  text='Go to set point', command=self.go_to_setpoint).grid(row = 1 ,column = 2)
 		tk.Button(Button_frame,	text = 'Reset point',command=self.reset_point).grid(row=1,column=3)
-
+		## finger
 		tk.Button(Finger_frame,text = 'finger close',command=lambda:[ gripper_client(self.prefix,[6800,6800,6800])]).grid(row=1,column=1)
 		tk.Button(Finger_frame,text = 'finger open' ,command = lambda:[gripper_client(self.prefix,[0,0,0])]).grid(row=2,column=1)
-		##kill button Frame
+		##kill button 
 		tk.Button(Kill_Button_frame,text = "Stop",command = self.stop , height =20 , width =20).grid(row=1,column=1)
 		tk.Button(Kill_Button_frame,text = "Start",command = self.start , height =20 , width =20).grid(row=1,column=2)
 		
